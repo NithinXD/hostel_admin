@@ -1,0 +1,20 @@
+// Firestore Security Rules
+// Deploy these rules to your Firebase console
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Students collection - allow read/write for all authenticated users (since admin creates student accounts)
+    // In production, you might want to add more specific rules
+    match /students/{studentId} {
+      allow read, write: if true; // Temporarily open for development
+      // TODO: Implement proper server-side authentication or use Firebase Admin SDK
+    }
+    
+    // Allow students to read their own profile (for future student app)
+    match /students/{studentId} {
+      allow read: if request.auth != null 
+        && request.auth.uid == studentId;
+    }
+  }
+}

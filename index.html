@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hostel Admin Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="loading-screen">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading Hostel Admin Portal...</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="loginSection" class="row justify-content-center align-items-center min-vh-100" style="display: none;">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-lg">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-building fa-3x text-primary"></i>
+                            <h2 class="mt-3">Admin Portal</h2>
+                            <p class="text-muted">Hostel Management System</p>
+                        </div>
+                        
+                        <form id="loginForm">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" required 
+                                       placeholder="admin@gmail.com">
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required 
+                                       placeholder="admin_hostel@2025">
+                            </div>
+                            <div id="loginError" class="alert alert-danger" style="display: none;"></div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sign-in-alt me-2"></i>Login
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="adminSection" class="admin-section" style="display: none;">
+            <!-- Header -->
+            <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="#">
+                        <i class="fas fa-building me-2"></i>Hostel Admin
+                    </a>
+                    <div class="navbar-nav ms-auto">
+                        <span class="navbar-text me-3">Welcome, Admin</span>
+                        <button class="btn btn-outline-light btn-sm" onclick="logout()">
+                            <i class="fas fa-sign-out-alt me-1"></i>Logout
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="container-fluid mt-4">
+                <div class="row">
+                    <!-- Student Registration Form -->
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h4><i class="fas fa-user-plus me-2"></i>Student Registration</h4>
+                            </div>
+                            <div class="card-body">
+                                <form id="studentForm">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="studentName" class="form-label">Full Name *</label>
+                                            <input type="text" class="form-control" id="studentName" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="studentEmail" class="form-label">Email *</label>
+                                            <input type="email" class="form-control" id="studentEmail" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="studentPhone" class="form-label">Phone Number *</label>
+                                            <input type="tel" class="form-control" id="studentPhone" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="birthDate" class="form-label">Birth Date *</label>
+                                            <input type="date" class="form-control" id="birthDate" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="amountPaid" class="form-label">Amount Paid (₹) *</label>
+                                            <select class="form-select" id="amountPaid" required>
+                                                <option value="">Select Amount</option>
+                                                <option value="89000">₹89,000 - A Block Non AC</option>
+                                                <option value="92000">₹92,000 - E Block Non AC</option>
+                                                <option value="115000">₹1,15,000 - E Block AC</option>
+                                                <option value="135000">₹1,35,000 - E New Floor AC</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="assignedRoom" class="form-label">Assigned Room</label>
+                                            <input type="text" class="form-control" id="assignedRoom" readonly>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="documents" class="form-label">Documents (Optional)</label>
+                                        <input type="file" class="form-control" id="documents" 
+                                               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple>
+                                        <div class="form-text">Supported: PDF, JPG, PNG, DOC, DOCX</div>
+                                    </div>
+
+                                    <div id="registrationError" class="alert alert-danger" style="display: none;"></div>
+                                    <div id="registrationSuccess" class="alert alert-success" style="display: none;"></div>
+
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="fas fa-user-plus me-2"></i>Register Student
+                                    </button>
+                                    <button type="reset" class="btn btn-secondary ms-2">
+                                        <i class="fas fa-redo me-2"></i>Reset Form
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Room Assignment Info -->
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h5><i class="fas fa-bed me-2"></i>Room Assignment Rules</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="room-rule">
+                                    <div class="amount">₹89,000</div>
+                                    <div class="room-type">A Block - Non AC</div>
+                                </div>
+                                <div class="room-rule">
+                                    <div class="amount">₹92,000</div>
+                                    <div class="room-type">E Block - Non AC</div>
+                                </div>
+                                <div class="room-rule">
+                                    <div class="amount">₹1,15,000</div>
+                                    <div class="room-type">E Block - AC</div>
+                                </div>
+                                <div class="room-rule">
+                                    <div class="amount">₹1,35,000</div>
+                                    <div class="room-type">E New Floor - AC</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Statistics -->
+                        <div class="card mt-4">
+                            <div class="card-header bg-success text-white">
+                                <h5><i class="fas fa-chart-bar me-2"></i>Registration Stats</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="stat-item">
+                                    <div class="stat-label">Total Registrations</div>
+                                    <div class="stat-value" id="totalRegistrations">0</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">A Block Non AC</div>
+                                    <div class="stat-value" id="aBlockCount">0</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">E Block Non AC</div>
+                                    <div class="stat-value" id="eBlockNonACCount">0</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">E Block AC</div>
+                                    <div class="stat-value" id="eBlockACCount">0</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">E New Floor AC</div>
+                                    <div class="stat-value" id="eNewFloorCount">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
