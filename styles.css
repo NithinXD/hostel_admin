@@ -243,3 +243,254 @@ body {
 .progress-bar {
     background: linear-gradient(45deg, #007bff, #0056b3);
 }
+
+/* Booking Dashboard Styles */
+.booking-card {
+    border-left: 4px solid #ffc107;
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.booking-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.booking-card.approved {
+    border-left-color: #28a745;
+}
+
+.booking-card.rejected {
+    border-left-color: #dc3545;
+}
+
+.booking-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.booking-status.pending {
+    color: #856404;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.booking-status.approved {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.booking-status.rejected {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.booking-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.booking-info-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+}
+
+.booking-info-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.booking-info-value {
+    font-size: 0.9rem;
+    color: #495057;
+    font-weight: 500;
+}
+
+.booking-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.btn-approve {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    color: white;
+    font-weight: 600;
+}
+
+.btn-approve:hover {
+    background: linear-gradient(45deg, #20c997, #28a745);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-reject {
+    background: linear-gradient(45deg, #dc3545, #e74c3c);
+    border: none;
+    color: white;
+    font-weight: 600;
+}
+
+.btn-reject:hover {
+    background: linear-gradient(45deg, #e74c3c, #dc3545);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-view-docs {
+    background: linear-gradient(45deg, #17a2b8, #20c997);
+    border: none;
+    color: white;
+    font-weight: 600;
+}
+
+.btn-view-docs:hover {
+    background: linear-gradient(45deg, #20c997, #17a2b8);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state h5 {
+    margin-bottom: 10px;
+    color: #495057;
+}
+
+.empty-state p {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+/* Tab styling */
+.nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    border-radius: 0;
+    color: #6c757d;
+    font-weight: 600;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+    border-color: transparent;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: transparent;
+    color: #007bff;
+    border-bottom: 2px solid #007bff;
+    font-weight: 700;
+}
+
+.tab-content {
+    padding-top: 20px;
+}
+
+/* Badge styling */
+.badge {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+/* Responsive booking cards */
+@media (max-width: 768px) {
+    .booking-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .booking-actions {
+        flex-direction: column;
+    }
+    
+    .booking-actions .btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+}
+
+/* Loading states */
+.loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    flex-direction: column;
+}
+
+.loading-spinner i {
+    font-size: 2rem;
+    color: #007bff;
+    margin-bottom: 15px;
+}
+
+/* Document preview */
+.document-preview {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.document-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.document-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #495057;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.document-item:hover {
+    background-color: #e9ecef;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.document-item i {
+    margin-right: 5px;
+}
