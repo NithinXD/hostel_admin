@@ -36,7 +36,8 @@ let registrationStats = {
     eNewFloor: 0,
     pending: 0,
     approved: 0,
-    rejected: 0
+    rejected: 0,
+    notBooked: 0
 };
 
 // DOM Elements
@@ -198,11 +199,16 @@ async function handleStudentRegistration(e) {
             amountPaid: parseInt(formData.amountPaid),
             roomAssignment: ROOM_ASSIGNMENTS[formData.amountPaid],
             documents: documentUrls,
-            status: 'approved', // Direct registration by admin is auto-approved
             registeredAt: firebase.database.ServerValue.TIMESTAMP,
             registeredBy: ADMIN_EMAIL,
-            approvedAt: firebase.database.ServerValue.TIMESTAMP,
-            approvedBy: ADMIN_EMAIL
+            booking: {
+                status: 'approved', // Direct registration by admin is auto-approved
+                approvedAt: firebase.database.ServerValue.TIMESTAMP,
+                approvedBy: ADMIN_EMAIL,
+                block: ROOM_ASSIGNMENTS[formData.amountPaid]?.split(' - ')[0] || 'TBD',
+                floor: 'TBD',
+                occupancy: 1
+            }
         };
         
         // Save to Realtime Database
@@ -362,7 +368,8 @@ async function loadStats() {
             eNewFloor: 0,
             pending: 0,
             approved: 0,
-            rejected: 0
+            rejected: 0,
+            notBooked: 0
         };
         
         if (studentsData) {
@@ -370,8 +377,9 @@ async function loadStats() {
                 const data = studentsData[studentId];
                 registrationStats.total++;
                 
-                // Count by status
-                switch (data.status) {
+                // Count by booking status
+                const bookingStatus = data.booking && data.booking.status ? data.booking.status : null;
+                switch (bookingStatus) {
                     case 'pending':
                         registrationStats.pending++;
                         break;
@@ -382,20 +390,17 @@ async function loadStats() {
                         registrationStats.rejected++;
                         break;
                     default:
-                        registrationStats.approved++; // Assume old records without status are approved
+                        registrationStats.notBooked++; // Students without booking status
                 }
                 
                 // Count by room type (only for approved students)
-                if (data.status === 'approved' || !data.status) {
+                if (bookingStatus === 'approved' || !bookingStatus) {
                     switch (data.amountPaid) {
                         case 89000:
                             registrationStats.aBlock++;
                             break;
                         case 92000:
                             registrationStats.eBlockNonAC++;
-                            break;
-                        case 115000:
-                            registrationStats.eBlockAC++;
                             break;
                         case 135000:
                             registrationStats.eNewFloor++;
@@ -417,11 +422,13 @@ function updateStatsDisplay() {
     document.getElementById('pendingStats').textContent = registrationStats.pending;
     document.getElementById('approvedStats').textContent = registrationStats.approved;
     document.getElementById('rejectedStats').textContent = registrationStats.rejected;
+    document.getElementById('notBookedStats').textContent = registrationStats.notBooked;
     
     // Update badge counts in the tab
     const pendingBadge = document.getElementById('pendingCount');
     const rejectedBadge = document.getElementById('rejectedCount');
     const approvedBadge = document.getElementById('approvedCount');
+    const notBookedBadge = document.getElementById('notBookedCount');
     
     if (pendingBadge) {
         pendingBadge.textContent = registrationStats.pending;
@@ -441,6 +448,13 @@ function updateStatsDisplay() {
         approvedBadge.textContent = registrationStats.approved;
         approvedBadge.className = registrationStats.approved > 0 
             ? 'badge bg-success ms-1' 
+            : 'badge bg-secondary ms-1';
+    }
+    
+    if (notBookedBadge) {
+        notBookedBadge.textContent = registrationStats.notBooked;
+        notBookedBadge.className = registrationStats.notBooked > 0 
+            ? 'badge bg-info ms-1' 
             : 'badge bg-secondary ms-1';
     }
 }
@@ -551,13 +565,19 @@ function displayAllBookings(studentsArray) {
     }
     
     // Filter by status if needed
+    // Status definitions:
+    // - pending: student.booking.status === 'pending' (student applied but admin hasn't approved/rejected yet)
+    // - approved: student.booking.status === 'approved' (admin approved the booking)
+    // - rejected: student.booking.status === 'rejected' (admin rejected the booking)
+    // - undefined/not booked yet: no booking.status field (student exists but hasn't made a booking)
     let filteredStudents = studentsArray;
     if (statusFilter !== 'all') {
         filteredStudents = studentsArray.filter(student => {
+            const bookingStatus = student.booking && student.booking.status ? student.booking.status : null;
             if (statusFilter === 'undefined') {
-                return !student.status;
+                return !bookingStatus;
             }
-            return student.status === statusFilter;
+            return bookingStatus === statusFilter;
         });
     }
     
@@ -566,7 +586,7 @@ function displayAllBookings(studentsArray) {
             <div class="empty-state">
                 <i class="fas fa-filter"></i>
                 <h5>No Students Match Filter</h5>
-                <p>No students found with status: ${statusFilter}</p>
+                <p>No students found with status: ${statusFilter === 'undefined' ? 'Not Booked Yet' : statusFilter}</p>
                 <button class="btn btn-primary mt-2" onclick="document.getElementById('statusFilter').value='all'; loadAllBookings();">
                     Show All Students
                 </button>
@@ -578,7 +598,7 @@ function displayAllBookings(studentsArray) {
     let bookingsHtml = '';
     
     filteredStudents.forEach(student => {
-        const status = student.status || 'undefined';
+        const status = student.booking && student.booking.status ? student.booking.status : 'undefined';
         const statusClass = getStatusClass(status);
         const statusIcon = getStatusIcon(status);
         const statusText = getStatusText(status);
@@ -667,7 +687,7 @@ function displayAllBookings(studentsArray) {
                     </div>
                     
                     <div class="booking-actions">
-                        ${status === 'pending' || !student.status ? `
+                        ${status === 'pending' || !student.booking || !student.booking.status ? `
                             <button class="btn btn-approve btn-sm" onclick="approveBooking('${student.id}', '${student.email || ''}', '${student.birthDate || ''}')">
                                 <i class="fas fa-check me-1"></i>Approve
                             </button>
@@ -720,7 +740,7 @@ function getStatusText(status) {
         case 'pending': return 'Pending';
         case 'approved': return 'Approved';
         case 'rejected': return 'Rejected';
-        default: return 'No Status';
+        default: return 'Not Booked Yet';
     }
 }
 
@@ -765,7 +785,8 @@ async function loadPendingBookings() {
             if (allStudentsData) {
                 Object.keys(allStudentsData).forEach(studentId => {
                     const student = allStudentsData[studentId];
-                    console.log(`Student ${studentId}: status = "${student.status || 'undefined'}", name = "${student.name || 'undefined'}"`);
+                    const bookingStatus = student.booking && student.booking.status ? student.booking.status : 'undefined';
+                    console.log(`Student ${studentId}: booking status = "${bookingStatus}", name = "${student.name || 'undefined'}"`);
                 });
             }
         }
@@ -1050,10 +1071,13 @@ async function approveBooking(studentId, email, birthDate) {
         const updatedData = {
             ...studentData,
             uid: studentUid,
-            status: 'approved',
-            approvedAt: firebase.database.ServerValue.TIMESTAMP,
-            approvedBy: ADMIN_EMAIL,
-            roomAssignment: roomAssignment || 'To be assigned'
+            roomAssignment: roomAssignment || 'To be assigned',
+            booking: {
+                ...studentData.booking,
+                status: 'approved',
+                approvedAt: firebase.database.ServerValue.TIMESTAMP,
+                approvedBy: ADMIN_EMAIL
+            }
         };
         
         // Update the existing record
@@ -1081,10 +1105,13 @@ async function approveBooking(studentId, email, birthDate) {
                 
                 const updatedData = {
                     ...studentData,
-                    status: 'approved',
-                    approvedAt: firebase.database.ServerValue.TIMESTAMP,
-                    approvedBy: ADMIN_EMAIL,
-                    roomAssignment: studentData.roomAssignment || ROOM_ASSIGNMENTS[studentData.amountPaid] || 'To be assigned'
+                    roomAssignment: studentData.roomAssignment || ROOM_ASSIGNMENTS[studentData.amountPaid] || 'To be assigned',
+                    booking: {
+                        ...studentData.booking,
+                        status: 'approved',
+                        approvedAt: firebase.database.ServerValue.TIMESTAMP,
+                        approvedBy: ADMIN_EMAIL
+                    }
                 };
                 
                 await database.ref('students/' + studentId).set(updatedData);
@@ -1114,13 +1141,27 @@ async function rejectBooking(studentId) {
     }
     
     try {
-        // Update student status to rejected
-        await database.ref('students/' + studentId).update({
-            status: 'rejected',
-            rejectedAt: firebase.database.ServerValue.TIMESTAMP,
-            rejectedBy: ADMIN_EMAIL,
-            rejectionReason: reason || 'No reason provided'
-        });
+        // Get current student data first
+        const studentSnapshot = await database.ref('students/' + studentId).once('value');
+        const studentData = studentSnapshot.val();
+        
+        if (!studentData) {
+            throw new Error('Student data not found');
+        }
+        
+        // Update student booking status to rejected
+        const updatedData = {
+            ...studentData,
+            booking: {
+                ...studentData.booking,
+                status: 'rejected',
+                rejectedAt: firebase.database.ServerValue.TIMESTAMP,
+                rejectedBy: ADMIN_EMAIL,
+                rejectionReason: reason || 'No reason provided'
+            }
+        };
+        
+        await database.ref('students/' + studentId).set(updatedData);
         
         console.log('Booking rejected successfully');
         

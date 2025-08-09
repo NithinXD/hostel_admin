@@ -76,6 +76,7 @@
                             <span id="pendingCount" class="badge bg-warning text-dark ms-1">0</span>
                             <span id="rejectedCount" class="badge bg-danger ms-1">0</span>
                             <span id="approvedCount" class="badge bg-success ms-1">0</span>
+                            <span id="notBookedCount" class="badge bg-secondary ms-1">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -108,7 +109,7 @@
                                                         <option value="pending">Pending Only</option>
                                                         <option value="approved">Approved Only</option>
                                                         <option value="rejected">Rejected Only</option>
-                                                        <option value="undefined">No Status</option>
+                                                        <option value="undefined">Not Booked Yet</option>
                                                     </select>
                                                     <button class="btn btn-primary" onclick="refreshAllBookings()">
                                                         <i class="fas fa-sync-alt"></i>
@@ -250,6 +251,10 @@
                                 <div class="stat-item">
                                     <div class="stat-label">Rejected</div>
                                     <div class="stat-value" id="rejectedStats">0</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Not Booked Yet</div>
+                                    <div class="stat-value" id="notBookedStats">0</div>
                                 </div>
                             </div>
                         </div>
