@@ -59,8 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isAdminLoggedIn = true;
         showAdminSection();
         loadStats();
-        loadPendingBookings();
-        loadApprovedStudents();
+        loadAllBookings();
     } else {
         showLoginSection();
     }
@@ -85,6 +84,13 @@ function setupEventListeners() {
     studentForm.addEventListener('reset', function() {
         clearMessages();
         assignedRoomInput.value = '';
+    });
+    
+    // Status filter change
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'statusFilter') {
+            loadAllBookings();
+        }
     });
 }
 
@@ -136,8 +142,7 @@ async function handleLogin(e) {
         console.log('Admin logged in successfully');
         showAdminSection();
         loadStats();
-        loadPendingBookings();
-        loadApprovedStudents();
+        loadAllBookings();
         
     } catch (error) {
         console.error('Login error:', error);
@@ -220,8 +225,7 @@ async function handleStudentRegistration(e) {
         
         // Update stats
         await loadStats();
-        await loadPendingBookings();
-        await loadApprovedStudents();
+        await loadAllBookings();
         
     } catch (error) {
         console.error('Registration error:', error);
@@ -410,18 +414,34 @@ async function loadStats() {
 }
 
 function updateStatsDisplay() {
-    document.getElementById('totalRegistrations').textContent = registrationStats.approved;
-    document.getElementById('aBlockCount').textContent = registrationStats.aBlock;
-    document.getElementById('eBlockNonACCount').textContent = registrationStats.eBlockNonAC;
-    document.getElementById('eBlockACCount').textContent = registrationStats.eBlockAC;
-    document.getElementById('eNewFloorCount').textContent = registrationStats.eNewFloor;
+    document.getElementById('totalRegistrations').textContent = registrationStats.total;
+    document.getElementById('pendingStats').textContent = registrationStats.pending;
+    document.getElementById('approvedStats').textContent = registrationStats.approved;
+    document.getElementById('rejectedStats').textContent = registrationStats.rejected;
     
-    // Update pending count badge
-    const pendingCountBadge = document.getElementById('pendingCount');
-    if (pendingCountBadge) {
-        pendingCountBadge.textContent = registrationStats.pending;
-        pendingCountBadge.className = registrationStats.pending > 0 
+    // Update badge counts in the tab
+    const pendingBadge = document.getElementById('pendingCount');
+    const rejectedBadge = document.getElementById('rejectedCount');
+    const approvedBadge = document.getElementById('approvedCount');
+    
+    if (pendingBadge) {
+        pendingBadge.textContent = registrationStats.pending;
+        pendingBadge.className = registrationStats.pending > 0 
             ? 'badge bg-warning text-dark ms-1' 
+            : 'badge bg-secondary ms-1';
+    }
+    
+    if (rejectedBadge) {
+        rejectedBadge.textContent = registrationStats.rejected;
+        rejectedBadge.className = registrationStats.rejected > 0 
+            ? 'badge bg-danger ms-1' 
+            : 'badge bg-secondary ms-1';
+    }
+    
+    if (approvedBadge) {
+        approvedBadge.textContent = registrationStats.approved;
+        approvedBadge.className = registrationStats.approved > 0 
+            ? 'badge bg-success ms-1' 
             : 'badge bg-secondary ms-1';
     }
 }
@@ -478,26 +498,292 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // Booking Management Functions
 
+async function loadAllBookings() {
+    try {
+        console.log('Loading all bookings from Firebase...');
+        
+        // Get all students data
+        const studentsSnapshot = await database.ref('students').once('value');
+        const studentsData = studentsSnapshot.val();
+        
+        console.log('All students data:', studentsData);
+        
+        if (!studentsData) {
+            displayAllBookings(null);
+            return;
+        }
+        
+        // Convert to array and sort by status priority: pending, rejected, approved, undefined
+        const studentsArray = Object.keys(studentsData).map(key => ({
+            id: key,
+            ...studentsData[key]
+        }));
+        
+        // Sort by status priority
+        const statusOrder = { 'pending': 1, 'rejected': 2, 'approved': 3, undefined: 4 };
+        studentsArray.sort((a, b) => {
+            const statusA = statusOrder[a.status] || statusOrder[undefined];
+            const statusB = statusOrder[b.status] || statusOrder[undefined];
+            return statusA - statusB;
+        });
+        
+        console.log('Sorted students array:', studentsArray);
+        displayAllBookings(studentsArray);
+        
+    } catch (error) {
+        console.error('Error loading all bookings:', error);
+        showAllBookingsError('Failed to load bookings: ' + error.message);
+    }
+}
+
+function displayAllBookings(studentsArray) {
+    const container = document.getElementById('allBookingsContainer');
+    const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+    
+    if (!studentsArray || studentsArray.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h5>No Students Found</h5>
+                <p>No student data available in the database.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Filter by status if needed
+    let filteredStudents = studentsArray;
+    if (statusFilter !== 'all') {
+        filteredStudents = studentsArray.filter(student => {
+            if (statusFilter === 'undefined') {
+                return !student.status;
+            }
+            return student.status === statusFilter;
+        });
+    }
+    
+    if (filteredStudents.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-filter"></i>
+                <h5>No Students Match Filter</h5>
+                <p>No students found with status: ${statusFilter}</p>
+                <button class="btn btn-primary mt-2" onclick="document.getElementById('statusFilter').value='all'; loadAllBookings();">
+                    Show All Students
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let bookingsHtml = '';
+    
+    filteredStudents.forEach(student => {
+        const status = student.status || 'undefined';
+        const statusClass = getStatusClass(status);
+        const statusIcon = getStatusIcon(status);
+        const statusText = getStatusText(status);
+        
+        // Handle different timestamp formats
+        let registrationDate = 'N/A';
+        if (student.registeredAt) {
+            registrationDate = new Date(student.registeredAt).toLocaleDateString('en-IN');
+        } else if (student.timestamp) {
+            registrationDate = new Date(student.timestamp).toLocaleDateString('en-IN');
+        }
+        
+        // Get room type
+        let roomType = 'Unknown';
+        if (student.roomAssignment) {
+            roomType = student.roomAssignment;
+        } else if (student.booking && student.booking.block && student.booking.floor) {
+            roomType = `${student.booking.block} - ${student.booking.floor}`;
+        } else if (student.amountPaid && ROOM_ASSIGNMENTS[student.amountPaid]) {
+            roomType = ROOM_ASSIGNMENTS[student.amountPaid];
+        }
+        
+        const amount = student.amountPaid || 0;
+        
+        bookingsHtml += `
+            <div class="booking-card card mb-3 ${statusClass}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user me-2"></i>${student.name || 'N/A'}
+                        </h5>
+                        <span class="booking-status ${status}">
+                            <i class="${statusIcon} me-1"></i>${statusText}
+                        </span>
+                    </div>
+                    
+                    <div class="booking-info">
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Email</span>
+                            <span class="booking-info-value">${student.email || 'N/A'}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Phone</span>
+                            <span class="booking-info-value">${student.phone || 'N/A'}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Birth Date</span>
+                            <span class="booking-info-value">${student.birthDate ? formatDate(student.birthDate) : 'N/A'}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Amount Paid</span>
+                            <span class="booking-info-value">${amount > 0 ? formatCurrency(amount) : 'N/A'}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Room Type</span>
+                            <span class="booking-info-value">${roomType}</span>
+                        </div>
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Applied On</span>
+                            <span class="booking-info-value">${registrationDate}</span>
+                        </div>
+                        ${student.booking && student.booking.occupancy ? `
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Occupancy</span>
+                            <span class="booking-info-value">${student.booking.occupancy} person(s)</span>
+                        </div>
+                        ` : ''}
+                        ${student.booking && student.booking.rooms ? `
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Room Number</span>
+                            <span class="booking-info-value">${Object.values(student.booking.rooms).join(', ')}</span>
+                        </div>
+                        ` : ''}
+                        ${student.approvedAt ? `
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Approved On</span>
+                            <span class="booking-info-value">${new Date(student.approvedAt).toLocaleDateString('en-IN')}</span>
+                        </div>
+                        ` : ''}
+                        ${student.rejectedAt ? `
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Rejected On</span>
+                            <span class="booking-info-value">${new Date(student.rejectedAt).toLocaleDateString('en-IN')}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="booking-actions">
+                        ${status === 'pending' || !student.status ? `
+                            <button class="btn btn-approve btn-sm" onclick="approveBooking('${student.id}', '${student.email || ''}', '${student.birthDate || ''}')">
+                                <i class="fas fa-check me-1"></i>Approve
+                            </button>
+                            <button class="btn btn-reject btn-sm" onclick="rejectBooking('${student.id}')">
+                                <i class="fas fa-times me-1"></i>Reject
+                            </button>
+                        ` : ''}
+                        ${status === 'rejected' ? `
+                            <button class="btn btn-approve btn-sm" onclick="approveBooking('${student.id}', '${student.email || ''}', '${student.birthDate || ''}')">
+                                <i class="fas fa-undo me-1"></i>Re-approve
+                            </button>
+                        ` : ''}
+                        ${status === 'approved' ? `
+                            <button class="btn btn-reject btn-sm" onclick="rejectBooking('${student.id}')">
+                                <i class="fas fa-ban me-1"></i>Revoke
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-info btn-sm" onclick="viewStudentDetails('${student.id}')">
+                            <i class="fas fa-eye me-1"></i>Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = bookingsHtml;
+}
+
+function getStatusClass(status) {
+    switch (status) {
+        case 'pending': return 'border-warning';
+        case 'approved': return 'border-success';
+        case 'rejected': return 'border-danger';
+        default: return 'border-secondary';
+    }
+}
+
+function getStatusIcon(status) {
+    switch (status) {
+        case 'pending': return 'fas fa-clock';
+        case 'approved': return 'fas fa-check-circle';
+        case 'rejected': return 'fas fa-times-circle';
+        default: return 'fas fa-question-circle';
+    }
+}
+
+function getStatusText(status) {
+    switch (status) {
+        case 'pending': return 'Pending';
+        case 'approved': return 'Approved';
+        case 'rejected': return 'Rejected';
+        default: return 'No Status';
+    }
+}
+
+async function refreshAllBookings() {
+    await loadAllBookings();
+    showGlobalSuccess('Bookings refreshed successfully!');
+}
+
+function showAllBookingsError(message) {
+    document.getElementById('allBookingsContainer').innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        </div>
+    `;
+}
+
+function viewStudentDetails(studentId) {
+    // For now, just log the student details
+    console.log('Viewing details for student:', studentId);
+    // Could implement a modal or detailed view here
+}
+
 async function loadPendingBookings() {
     try {
-        console.log('Loading pending bookings...');
+        console.log('Loading pending bookings from Firebase...');
         
+        // First, let's see all students data to debug
+        const allStudentsSnapshot = await database.ref('students').once('value');
+        const allStudentsData = allStudentsSnapshot.val();
+        console.log('All students data in Firebase:', allStudentsData);
+        
+        // Query for students with "pending" status
         const bookingsSnapshot = await database.ref('students').orderByChild('status').equalTo('pending').once('value');
         const bookingsData = bookingsSnapshot.val();
+        
+        console.log('Pending bookings data:', bookingsData);
+        console.log('Number of pending bookings found:', bookingsData ? Object.keys(bookingsData).length : 0);
+        
+        // If no pending bookings found, let's see what statuses exist
+        if (!bookingsData || Object.keys(bookingsData).length === 0) {
+            console.log('No pending bookings found. Checking all student statuses...');
+            if (allStudentsData) {
+                Object.keys(allStudentsData).forEach(studentId => {
+                    const student = allStudentsData[studentId];
+                    console.log(`Student ${studentId}: status = "${student.status || 'undefined'}", name = "${student.name || 'undefined'}"`);
+                });
+            }
+        }
         
         displayPendingBookings(bookingsData);
         
     } catch (error) {
         console.error('Error loading pending bookings:', error);
-        showBookingsError('Failed to load pending bookings');
+        showBookingsError('Failed to load pending bookings: ' + error.message);
     }
 }
 
 async function loadApprovedStudents() {
     try {
-        console.log('Loading approved students...');
+        console.log('Loading approved students from Firebase...');
         
-        // Get students with 'approved' status or without status (legacy records)
+        // Get all students and filter for approved ones
         const studentsSnapshot = await database.ref('students').once('value');
         const studentsData = studentsSnapshot.val();
         
@@ -505,17 +791,19 @@ async function loadApprovedStudents() {
         if (studentsData) {
             Object.keys(studentsData).forEach(key => {
                 const student = studentsData[key];
+                // Include students with 'approved' status or without status (legacy records)
                 if (student.status === 'approved' || !student.status) {
                     approvedStudents[key] = student;
                 }
             });
         }
         
+        console.log('Approved students data:', approvedStudents);
         displayApprovedStudents(approvedStudents);
         
     } catch (error) {
         console.error('Error loading approved students:', error);
-        showApprovedError('Failed to load approved students');
+        showApprovedError('Failed to load approved students: ' + error.message);
     }
 }
 
@@ -528,6 +816,14 @@ function displayPendingBookings(bookingsData) {
                 <i class="fas fa-clipboard-check"></i>
                 <h5>No Pending Bookings</h5>
                 <p>All bookings have been processed. Great work!</p>
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <strong>Troubleshooting:</strong><br>
+                        • Use the "Debug" button to check Firebase data<br>
+                        • Use "Test Booking" to create a sample pending booking<br>
+                        • Use "Make Pending" to set an existing student to pending status
+                    </small>
+                </div>
             </div>
         `;
         return;
@@ -537,15 +833,34 @@ function displayPendingBookings(bookingsData) {
     
     Object.keys(bookingsData).forEach(studentId => {
         const booking = bookingsData[studentId];
-        const registrationDate = booking.registeredAt ? new Date(booking.registeredAt).toLocaleDateString('en-IN') : 'N/A';
-        const roomType = ROOM_ASSIGNMENTS[booking.amountPaid] || 'Unknown';
+        
+        // Handle different timestamp formats
+        let registrationDate = 'N/A';
+        if (booking.registeredAt) {
+            registrationDate = new Date(booking.registeredAt).toLocaleDateString('en-IN');
+        } else if (booking.timestamp) {
+            registrationDate = new Date(booking.timestamp).toLocaleDateString('en-IN');
+        }
+        
+        // Get room type based on booking structure or amount
+        let roomType = 'Unknown';
+        if (booking.roomAssignment) {
+            roomType = booking.roomAssignment;
+        } else if (booking.booking && booking.booking.block && booking.booking.floor) {
+            roomType = `${booking.booking.block} - ${booking.booking.floor}`;
+        } else if (booking.amountPaid && ROOM_ASSIGNMENTS[booking.amountPaid]) {
+            roomType = ROOM_ASSIGNMENTS[booking.amountPaid];
+        }
+        
+        // Format amount
+        const amount = booking.amountPaid || 0;
         
         bookingsHtml += `
             <div class="booking-card card mb-3">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <h5 class="card-title mb-0">
-                            <i class="fas fa-user me-2"></i>${booking.name}
+                            <i class="fas fa-user me-2"></i>${booking.name || 'N/A'}
                         </h5>
                         <span class="booking-status pending">
                             <i class="fas fa-clock me-1"></i>Pending
@@ -555,19 +870,19 @@ function displayPendingBookings(bookingsData) {
                     <div class="booking-info">
                         <div class="booking-info-item">
                             <span class="booking-info-label">Email</span>
-                            <span class="booking-info-value">${booking.email}</span>
+                            <span class="booking-info-value">${booking.email || 'N/A'}</span>
                         </div>
                         <div class="booking-info-item">
                             <span class="booking-info-label">Phone</span>
-                            <span class="booking-info-value">${booking.phone}</span>
+                            <span class="booking-info-value">${booking.phone || 'N/A'}</span>
                         </div>
                         <div class="booking-info-item">
                             <span class="booking-info-label">Birth Date</span>
-                            <span class="booking-info-value">${formatDate(booking.birthDate)}</span>
+                            <span class="booking-info-value">${booking.birthDate ? formatDate(booking.birthDate) : 'N/A'}</span>
                         </div>
                         <div class="booking-info-item">
                             <span class="booking-info-label">Amount Paid</span>
-                            <span class="booking-info-value">${formatCurrency(booking.amountPaid)}</span>
+                            <span class="booking-info-value">${amount > 0 ? formatCurrency(amount) : 'N/A'}</span>
                         </div>
                         <div class="booking-info-item">
                             <span class="booking-info-label">Room Type</span>
@@ -577,34 +892,27 @@ function displayPendingBookings(bookingsData) {
                             <span class="booking-info-label">Applied On</span>
                             <span class="booking-info-value">${registrationDate}</span>
                         </div>
+                        ${booking.booking && booking.booking.occupancy ? `
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Occupancy</span>
+                            <span class="booking-info-value">${booking.booking.occupancy} person(s)</span>
+                        </div>
+                        ` : ''}
+                        ${booking.booking && booking.booking.rooms ? `
+                        <div class="booking-info-item">
+                            <span class="booking-info-label">Room Number</span>
+                            <span class="booking-info-value">${Object.values(booking.booking.rooms).join(', ')}</span>
+                        </div>
+                        ` : ''}
                     </div>
                     
-                    ${booking.documents && booking.documents.length > 0 ? `
-                        <div class="mt-3">
-                            <span class="booking-info-label">Documents:</span>
-                            <div class="document-list">
-                                ${booking.documents.map(doc => `
-                                    <a href="${doc.url}" target="_blank" class="document-item">
-                                        <i class="fas fa-file-alt"></i>
-                                        ${doc.name}
-                                    </a>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
                     <div class="booking-actions">
-                        <button class="btn btn-approve btn-sm" onclick="approveBooking('${studentId}', '${booking.email}', '${booking.birthDate}')">
+                        <button class="btn btn-approve btn-sm" onclick="approveBooking('${studentId}', '${booking.email || ''}', '${booking.birthDate || ''}')">
                             <i class="fas fa-check me-1"></i>Approve
                         </button>
                         <button class="btn btn-reject btn-sm" onclick="rejectBooking('${studentId}')">
                             <i class="fas fa-times me-1"></i>Reject
                         </button>
-                        ${booking.documents && booking.documents.length > 0 ? `
-                            <button class="btn btn-view-docs btn-sm" onclick="viewDocuments('${studentId}')">
-                                <i class="fas fa-eye me-1"></i>View Documents
-                            </button>
-                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -702,6 +1010,8 @@ async function approveBooking(studentId, email, birthDate) {
     }
     
     try {
+        console.log('Approving booking for student:', studentId);
+        
         // Get the student data first
         const studentSnapshot = await database.ref('students/' + studentId).once('value');
         const studentData = studentSnapshot.val();
@@ -710,41 +1020,85 @@ async function approveBooking(studentId, email, birthDate) {
             throw new Error('Student data not found');
         }
         
-        // Create student account in Firebase Auth
-        const studentPassword = generatePasswordFromBirthdate(birthDate);
-        const studentCredential = await auth.createUserWithEmailAndPassword(email, studentPassword);
-        const newStudentUid = studentCredential.user.uid;
+        // If student doesn't have email/birthDate in the main data, use the passed parameters
+        const studentEmail = studentData.email || email;
+        const studentBirthDate = studentData.birthDate || birthDate;
+        
+        if (!studentEmail || !studentBirthDate) {
+            throw new Error('Student email or birth date is missing');
+        }
+        
+        // Check if this student already has a Firebase Auth account
+        let studentUid = studentData.uid;
+        
+        // If no UID exists, create a new Firebase Auth account
+        if (!studentUid) {
+            const studentPassword = generatePasswordFromBirthdate(studentBirthDate);
+            const studentCredential = await auth.createUserWithEmailAndPassword(studentEmail, studentPassword);
+            studentUid = studentCredential.user.uid;
+            console.log('Created new Firebase Auth account for student');
+        }
+        
+        // Determine room assignment
+        let roomAssignment = studentData.roomAssignment;
+        if (!roomAssignment && studentData.amountPaid && ROOM_ASSIGNMENTS[studentData.amountPaid]) {
+            roomAssignment = ROOM_ASSIGNMENTS[studentData.amountPaid];
+        } else if (!roomAssignment && studentData.booking) {
+            roomAssignment = `${studentData.booking.block || ''} - ${studentData.booking.floor || ''}`.trim();
+        }
         
         // Update student data with approval info
         const updatedData = {
             ...studentData,
-            uid: newStudentUid,
+            uid: studentUid,
             status: 'approved',
             approvedAt: firebase.database.ServerValue.TIMESTAMP,
             approvedBy: ADMIN_EMAIL,
-            roomAssignment: ROOM_ASSIGNMENTS[studentData.amountPaid]
+            roomAssignment: roomAssignment || 'To be assigned'
         };
         
-        // Move student to approved list and remove from pending
-        await database.ref('students/' + newStudentUid).set(updatedData);
-        await database.ref('students/' + studentId).remove();
+        // Update the existing record
+        await database.ref('students/' + studentId).set(updatedData);
         
         console.log('Booking approved successfully');
         
         // Refresh the displays
-        await loadPendingBookings();
-        await loadApprovedStudents();
+        await loadAllBookings();
         await loadStats();
         
         // Show success message
-        showGlobalSuccess(`Booking approved! Student login: ${email} / ${studentPassword}`);
+        const password = generatePasswordFromBirthdate(studentBirthDate);
+        showGlobalSuccess(`Booking approved! Student login: ${studentEmail} / ${password}`);
         
     } catch (error) {
         console.error('Error approving booking:', error);
         
         let errorMessage = 'Failed to approve booking: ';
         if (error.code === 'auth/email-already-in-use') {
-            errorMessage += 'A student with this email already exists.';
+            // If email already exists, just update the status without creating new auth account
+            try {
+                const studentSnapshot = await database.ref('students/' + studentId).once('value');
+                const studentData = studentSnapshot.val();
+                
+                const updatedData = {
+                    ...studentData,
+                    status: 'approved',
+                    approvedAt: firebase.database.ServerValue.TIMESTAMP,
+                    approvedBy: ADMIN_EMAIL,
+                    roomAssignment: studentData.roomAssignment || ROOM_ASSIGNMENTS[studentData.amountPaid] || 'To be assigned'
+                };
+                
+                await database.ref('students/' + studentId).set(updatedData);
+                
+                // Refresh displays
+                await loadAllBookings();
+                await loadStats();
+                
+                showGlobalSuccess('Booking approved! (Student account already exists)');
+                return;
+            } catch (updateError) {
+                errorMessage += 'Student account exists but failed to update status.';
+            }
         } else {
             errorMessage += error.message;
         }
@@ -772,7 +1126,7 @@ async function rejectBooking(studentId) {
         console.log('Booking rejected successfully');
         
         // Refresh the displays
-        await loadPendingBookings();
+        await loadAllBookings();
         await loadStats();
         
         showGlobalSuccess('Booking rejected successfully');
@@ -858,4 +1212,117 @@ function showGlobalError(message) {
             alert.remove();
         }
     }, 5000);
+}
+
+// Debug Functions
+async function debugFirebaseData() {
+    try {
+        console.log('=== DEBUG: Firebase Data ===');
+        const snapshot = await database.ref('students').once('value');
+        const data = snapshot.val();
+        
+        if (!data) {
+            console.log('No students data found in Firebase');
+            showGlobalError('No students data found in Firebase database');
+            return;
+        }
+        
+        console.log('Full Firebase data:', data);
+        
+        // Analyze the data structure
+        const students = Object.keys(data);
+        console.log(`Found ${students.length} students in database`);
+        
+        students.forEach(studentId => {
+            const student = data[studentId];
+            console.log(`Student ${studentId}:`, {
+                name: student.name,
+                email: student.email,
+                status: student.status || 'NO STATUS',
+                amountPaid: student.amountPaid,
+                hasBooking: !!student.booking
+            });
+        });
+        
+        // Count by status
+        const statusCounts = {};
+        students.forEach(studentId => {
+            const status = data[studentId].status || 'undefined';
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        console.log('Status counts:', statusCounts);
+        showGlobalSuccess(`Debug complete. Found ${students.length} students. Check console for details.`);
+        
+    } catch (error) {
+        console.error('Debug error:', error);
+        showGlobalError('Debug failed: ' + error.message);
+    }
+}
+
+async function createTestPendingBooking() {
+    try {
+        const testBooking = {
+            name: "Test Student",
+            email: "test.student@example.com",
+            phone: "9876543210",
+            birthDate: "2005-01-01",
+            amountPaid: 89000,
+            status: "pending",
+            registeredAt: Date.now(),
+            booking: {
+                block: "Block A",
+                floor: "Ground Floor",
+                occupancy: 1
+            }
+        };
+        
+        const newBookingRef = database.ref('students').push();
+        await newBookingRef.set(testBooking);
+        
+        console.log('Test pending booking created:', newBookingRef.key);
+        
+        // Refresh the display
+        await loadPendingBookings();
+        await loadStats();
+        
+        showGlobalSuccess('Test pending booking created successfully!');
+        
+    } catch (error) {
+        console.error('Error creating test booking:', error);
+        showGlobalError('Failed to create test booking: ' + error.message);
+    }
+}
+
+async function setStudentStatusToPending(studentId) {
+    try {
+        if (!studentId) {
+            // Get the first student and set their status to pending
+            const snapshot = await database.ref('students').limitToFirst(1).once('value');
+            const data = snapshot.val();
+            
+            if (!data) {
+                showGlobalError('No students found in database');
+                return;
+            }
+            
+            studentId = Object.keys(data)[0];
+        }
+        
+        await database.ref('students/' + studentId).update({
+            status: 'pending'
+        });
+        
+        console.log(`Set student ${studentId} status to pending`);
+        
+        // Refresh displays
+        await loadAllBookings();
+        await loadStats();
+        
+        showGlobalSuccess(`Student ${studentId} status set to pending`);
+        
+    } catch (error) {
+        console.error('Error setting status to pending:', error);
+        showGlobalError('Failed to set status: ' + error.message);
+    }
 }

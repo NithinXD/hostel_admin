@@ -491,6 +491,31 @@ body {
     text-decoration: none;
 }
 
-.document-item i {
-    margin-right: 5px;
+.booking-status.undefined {
+    color: #6c757d;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.booking-card.border-warning {
+    border-left: 4px solid #ffc107 !important;
+}
+
+.booking-card.border-success {
+    border-left: 4px solid #28a745 !important;
+}
+
+.booking-card.border-danger {
+    border-left: 4px solid #dc3545 !important;
+}
+
+.booking-card.border-secondary {
+    border-left: 4px solid #6c757d !important;
+}
+
+/* Filter controls */
+.form-select {
+    min-width: 150px;
 }
