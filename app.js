@@ -200,15 +200,8 @@ async function handleStudentRegistration(e) {
             roomAssignment: ROOM_ASSIGNMENTS[formData.amountPaid],
             documents: documentUrls,
             registeredAt: firebase.database.ServerValue.TIMESTAMP,
-            registeredBy: ADMIN_EMAIL,
-            booking: {
-                status: 'approved', // Direct registration by admin is auto-approved
-                approvedAt: firebase.database.ServerValue.TIMESTAMP,
-                approvedBy: ADMIN_EMAIL,
-                block: ROOM_ASSIGNMENTS[formData.amountPaid]?.split(' - ')[0] || 'TBD',
-                floor: 'TBD',
-                occupancy: 1
-            }
+            registeredBy: ADMIN_EMAIL
+            // Note: booking sub-collection is kept empty during registration
         };
         
         // Save to Realtime Database
