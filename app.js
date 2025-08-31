@@ -196,6 +196,8 @@ async function handleStudentRegistration(e) {
             email: formData.email,
             phone: formData.phone,
             birthDate: formData.birthDate,
+            department: formData.department,
+            year: formData.year,
             amountPaid: parseInt(formData.amountPaid),
             roomAssignment: ROOM_ASSIGNMENTS[formData.amountPaid],
             documents: documentUrls,
@@ -255,6 +257,8 @@ function getFormData() {
         email: document.getElementById('studentEmail').value.trim(),
         phone: document.getElementById('studentPhone').value.trim(),
         birthDate: document.getElementById('birthDate').value,
+        department: document.getElementById('studentDepartment').value,
+        year: document.getElementById('studentYear').value,
         amountPaid: document.getElementById('amountPaid').value,
         documents: document.getElementById('documents').files
     };
@@ -267,6 +271,8 @@ function validateForm(data) {
     if (!data.email) errors.push('Email is required');
     if (!data.phone) errors.push('Phone is required');
     if (!data.birthDate) errors.push('Birth date is required');
+    if (!data.department) errors.push('Department is required');
+    if (!data.year) errors.push('Academic year is required');
     if (!data.amountPaid) errors.push('Amount paid is required');
     
     // Validate email format
